@@ -1,0 +1,1288 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Finance Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:       #0a0c14;
+  --bg2:      #111520;
+  --bg3:      #1a1f2e;
+  --accent:   #00d4ff;
+  --green:    #00e676;
+  --red:      #ff4757;
+  --text:     #e8eaf0;
+  --sub:      #6b7280;
+  --border:   rgba(0,212,255,0.15);
+  --glow:     rgba(0,212,255,0.25);
+  --card-glow: rgba(0,212,255,0.06);
+}
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  overscroll-behavior: none;
+}
+
+/* ── Layout ── */
+#app {
+  min-height: 100vh;
+  padding-bottom: env(safe-area-inset-bottom);
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Header ── */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px 8px;
+}
+.header-title {
+  font-family: 'Orbitron', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  color: var(--accent);
+  text-transform: uppercase;
+}
+.header-date {
+  font-size: 11px;
+  color: var(--sub);
+  letter-spacing: 1px;
+}
+
+/* ── Balance card ── */
+.balance-card {
+  margin: 8px 16px 0;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 24px 24px 20px;
+  position: relative;
+  overflow: hidden;
+}
+.balance-card::before {
+  content: '';
+  position: absolute;
+  top: -40px; right: -40px;
+  width: 150px; height: 150px;
+  background: radial-gradient(circle, rgba(0,212,255,0.12) 0%, transparent 70%);
+  pointer-events: none;
+}
+.balance-label {
+  font-size: 10px;
+  letter-spacing: 3px;
+  color: var(--sub);
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+.balance-amount {
+  font-family: 'Orbitron', monospace;
+  font-size: 36px;
+  font-weight: 900;
+  color: var(--accent);
+  text-shadow: 0 0 20px rgba(0,212,255,0.4);
+  line-height: 1;
+  transition: all 0.3s ease;
+}
+.balance-amount.negative { color: var(--red); text-shadow: 0 0 20px rgba(255,71,87,0.4); }
+.balance-sub {
+  margin-top: 8px;
+  font-size: 11px;
+  color: var(--sub);
+  letter-spacing: 0.5px;
+}
+
+/* ── Stats row ── */
+.stats-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin: 12px 16px 0;
+}
+.stat-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px 16px;
+  position: relative;
+  overflow: hidden;
+}
+.stat-card.income { border-color: rgba(0,230,118,0.2); }
+.stat-card.expense { border-color: rgba(255,71,87,0.2); }
+.stat-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  border-radius: 12px 12px 0 0;
+}
+.stat-card.income::before { background: var(--green); }
+.stat-card.expense::before { background: var(--red); }
+.stat-label {
+  font-size: 9px;
+  letter-spacing: 2px;
+  color: var(--sub);
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+.stat-amount {
+  font-family: 'Orbitron', monospace;
+  font-size: 17px;
+  font-weight: 700;
+}
+.stat-card.income .stat-amount { color: var(--green); }
+.stat-card.expense .stat-amount { color: var(--red); }
+.stat-hint { font-size: 10px; color: var(--sub); margin-top: 2px; }
+
+/* ── Action buttons ── */
+.actions {
+  display: flex;
+  gap: 10px;
+  margin: 14px 16px 0;
+}
+.btn {
+  flex: 1;
+  padding: 12px 8px;
+  border: none;
+  border-radius: 10px;
+  font-family: 'Orbitron', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+.btn::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(255,255,255,0);
+  transition: background 0.15s;
+}
+.btn:active::after { background: rgba(255,255,255,0.1); }
+.btn-income {
+  background: rgba(0,230,118,0.15);
+  color: var(--green);
+  border: 1px solid rgba(0,230,118,0.3);
+}
+.btn-expense {
+  background: rgba(255,71,87,0.15);
+  color: var(--red);
+  border: 1px solid rgba(255,71,87,0.3);
+}
+.btn-import {
+  flex: none;
+  padding: 12px 14px;
+  background: rgba(0,212,255,0.1);
+  color: var(--accent);
+  border: 1px solid var(--border);
+  font-size: 16px;
+  letter-spacing: 0;
+}
+
+/* ── Section title ── */
+.section-title {
+  font-size: 10px;
+  letter-spacing: 3px;
+  color: var(--sub);
+  text-transform: uppercase;
+  padding: 18px 20px 10px;
+}
+
+/* ── Transactions ── */
+.txn-list { padding: 0 16px 100px; }
+.txn-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  margin-bottom: 8px;
+  background: var(--bg2);
+  border: 1px solid rgba(255,255,255,0.05);
+  border-radius: 12px;
+  transition: all 0.2s ease;
+  animation: slideIn 0.3s ease;
+}
+@keyframes slideIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.txn-item:active { transform: scale(0.98); }
+.txn-icon {
+  width: 38px; height: 38px;
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+.txn-item.income .txn-icon  { background: rgba(0,230,118,0.12); }
+.txn-item.expense .txn-icon { background: rgba(255,71,87,0.12); }
+.txn-info { flex: 1; min-width: 0; }
+.txn-cat {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.txn-desc {
+  font-size: 11px;
+  color: var(--sub);
+  margin-top: 1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.txn-right { text-align: right; flex-shrink: 0; }
+.txn-amount {
+  font-family: 'Orbitron', monospace;
+  font-size: 13px;
+  font-weight: 700;
+}
+.txn-item.income  .txn-amount { color: var(--green); }
+.txn-item.expense .txn-amount { color: var(--red); }
+.txn-date { font-size: 10px; color: var(--sub); margin-top: 2px; }
+.txn-del {
+  width: 28px; height: 28px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,71,87,0.3);
+  background: rgba(255,71,87,0.08);
+  color: var(--red);
+  font-size: 14px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.2s;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.txn-item:hover .txn-del,
+.txn-item:active .txn-del { opacity: 1; }
+
+.empty-state {
+  text-align: center;
+  padding: 48px 24px;
+  color: var(--sub);
+}
+.empty-icon { font-size: 48px; margin-bottom: 12px; opacity: 0.4; }
+.empty-text { font-size: 13px; }
+
+/* ── Loading spinner ── */
+.spinner {
+  text-align: center;
+  padding: 48px;
+  color: var(--sub);
+}
+.spinner::after {
+  content: '';
+  display: inline-block;
+  width: 24px; height: 24px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Add Sheet (bottom sheet) ── */
+.overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.7);
+  backdrop-filter: blur(4px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+  z-index: 10;
+}
+.overlay.visible { opacity: 1; pointer-events: auto; }
+
+.sheet {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  background: var(--bg2);
+  border-top: 1px solid var(--border);
+  border-radius: 20px 20px 0 0;
+  padding: 0 0 env(safe-area-inset-bottom);
+  transform: translateY(100%);
+  transition: transform 0.35s cubic-bezier(0.32,0.72,0,1);
+  z-index: 20;
+  max-height: 92vh;
+  overflow-y: auto;
+}
+.sheet.visible { transform: translateY(0); }
+.sheet-handle {
+  width: 36px; height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  margin: 12px auto 4px;
+}
+.sheet-inner { padding: 8px 20px 24px; }
+.sheet-title {
+  font-family: 'Orbitron', monospace;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: var(--accent);
+  text-transform: uppercase;
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+/* ── Type toggle ── */
+.type-toggle {
+  display: flex;
+  background: var(--bg3);
+  border-radius: 10px;
+  padding: 3px;
+  margin-bottom: 20px;
+}
+.type-tab {
+  flex: 1;
+  padding: 10px;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  font-family: 'Orbitron', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: var(--sub);
+  text-transform: uppercase;
+}
+.type-tab.income.active  { background: rgba(0,230,118,0.2); color: var(--green); }
+.type-tab.expense.active { background: rgba(255,71,87,0.2);  color: var(--red); }
+
+/* ── Form fields ── */
+.field { margin-bottom: 16px; }
+.field label {
+  display: block;
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: var(--sub);
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+.field input,
+.field select {
+  width: 100%;
+  padding: 13px 16px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  font-family: 'Inter', sans-serif;
+  font-size: 15px;
+  outline: none;
+  transition: border-color 0.2s;
+  -webkit-appearance: none;
+}
+.field input:focus,
+.field select:focus { border-color: var(--accent); }
+.field input[type="number"] {
+  font-family: 'Orbitron', monospace;
+  font-size: 22px;
+  font-weight: 700;
+  text-align: center;
+  color: var(--accent);
+}
+.field input[type="number"]::placeholder { color: var(--bg3); opacity: 0; }
+.amount-wrap { position: relative; }
+.amount-currency {
+  position: absolute;
+  right: 16px; top: 50%;
+  transform: translateY(-50%);
+  font-size: 11px;
+  color: var(--sub);
+  pointer-events: none;
+  font-family: 'Orbitron', monospace;
+  letter-spacing: 1px;
+}
+.field select option { background: var(--bg2); }
+
+.btn-clear {
+  flex: none;
+  padding: 12px 14px;
+  background: rgba(255,71,87,0.1);
+  color: var(--red);
+  border: 1px solid rgba(255,71,87,0.3);
+  font-size: 16px;
+  letter-spacing: 0;
+}
+.btn-clear-opt {
+  width: 100%;
+  padding: 14px 16px;
+  margin-bottom: 10px;
+  background: var(--bg3);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 12px;
+  color: var(--text);
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  transition: all 0.2s;
+}
+.btn-clear-opt span {
+  width: 28px; height: 28px;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.06);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+.btn-clear-opt.danger {
+  border-color: rgba(255,71,87,0.3);
+  color: var(--red);
+}
+.btn-clear-opt.danger span { background: rgba(255,71,87,0.12); }
+.btn-clear-opt:active { transform: scale(0.98); }
+.btn-cancel {
+  width: 100%;
+  padding: 14px;
+  margin-top: 4px;
+  background: none;
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 12px;
+  color: var(--sub);
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  cursor: pointer;
+}
+.btn-save {
+  width: 100%;
+  padding: 15px;
+  background: linear-gradient(135deg, rgba(0,212,255,0.2), rgba(0,212,255,0.1));
+  border: 1px solid var(--accent);
+  border-radius: 12px;
+  color: var(--accent);
+  font-family: 'Orbitron', monospace;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  cursor: pointer;
+  text-transform: uppercase;
+  margin-top: 8px;
+  transition: all 0.2s ease;
+  box-shadow: 0 0 20px rgba(0,212,255,0.1);
+}
+.btn-save:active { transform: scale(0.98); box-shadow: 0 0 30px rgba(0,212,255,0.2); }
+.btn-save:disabled { opacity: 0.5; pointer-events: none; }
+
+/* ── Toast ── */
+.toast {
+  position: fixed;
+  bottom: 100px; left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 20px;
+  font-size: 13px;
+  color: var(--text);
+  opacity: 0;
+  transition: all 0.3s ease;
+  z-index: 100;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+.toast.success { border-color: rgba(0,230,118,0.4); color: var(--green); }
+.toast.error   { border-color: rgba(255,71,87,0.4);  color: var(--red); }
+
+/* ── Tab bar ── */
+.tab-bar {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  display: flex;
+  background: var(--bg2);
+  border-top: 1px solid var(--border);
+  padding-bottom: env(safe-area-inset-bottom);
+  z-index: 5;
+}
+.tab-item {
+  flex: 1;
+  padding: 10px 8px 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: var(--sub);
+  transition: color 0.2s;
+}
+.tab-item.active { color: var(--accent); }
+.tab-icon { font-size: 20px; line-height: 1; }
+.tab-label {
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  font-family: 'Orbitron', monospace;
+}
+
+/* ── Views ── */
+.view { display: none; }
+.view.active { display: block; }
+
+/* ── Tasks view ── */
+.tasks-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px 12px;
+}
+.tasks-counters {
+  display: flex;
+  gap: 8px;
+}
+.counter-badge {
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: 'Orbitron', monospace;
+}
+.counter-badge.all    { border-color: var(--border);               color: var(--sub); }
+.counter-badge.todo   { border-color: rgba(255,200,0,0.3);         color: #ffc800; }
+.counter-badge.doing  { border-color: rgba(0,212,255,0.3);         color: var(--accent); }
+.counter-badge.done   { border-color: rgba(0,230,118,0.3);         color: var(--green); }
+.counter-badge.active { background: rgba(255,255,255,0.08); }
+
+.btn-add-task {
+  width: 36px; height: 36px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: rgba(0,212,255,0.1);
+  color: var(--accent);
+  font-size: 20px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+
+.task-list { padding: 0 16px 100px; }
+.task-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 13px 14px;
+  margin-bottom: 8px;
+  background: var(--bg2);
+  border: 1px solid rgba(255,255,255,0.05);
+  border-radius: 12px;
+  animation: slideIn 0.3s ease;
+  transition: all 0.2s;
+}
+.task-item.done-item { opacity: 0.5; }
+.task-check {
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  cursor: pointer;
+  margin-top: 1px;
+  transition: all 0.2s;
+  font-size: 12px;
+}
+.task-check.todo      { border-color: rgba(255,200,0,0.5); }
+.task-check.in_progress { border-color: var(--accent); background: rgba(0,212,255,0.1); color: var(--accent); }
+.task-check.done      { border-color: var(--green); background: rgba(0,230,118,0.15); color: var(--green); }
+.task-body { flex: 1; min-width: 0; }
+.task-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text);
+  line-height: 1.3;
+}
+.task-item.done-item .task-title { text-decoration: line-through; color: var(--sub); }
+.task-desc {
+  font-size: 12px;
+  color: var(--sub);
+  margin-top: 3px;
+  line-height: 1.4;
+}
+.task-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+}
+.priority-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.priority-dot.high   { background: var(--red); }
+.priority-dot.medium { background: #ffc800; }
+.priority-dot.low    { background: var(--sub); }
+.priority-label { font-size: 10px; color: var(--sub); }
+.task-del {
+  width: 26px; height: 26px;
+  border-radius: 8px;
+  border: none;
+  background: none;
+  color: var(--sub);
+  font-size: 14px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.task-item:hover .task-del,
+.task-item:active .task-del { opacity: 1; }
+
+/* ── Task form sheet ── */
+.priority-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.priority-btn {
+  flex: 1;
+  padding: 9px 4px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.07);
+  background: var(--bg3);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: var(--sub);
+}
+.priority-btn.high.active   { border-color: rgba(255,71,87,0.5);  background: rgba(255,71,87,0.12);  color: var(--red); }
+.priority-btn.medium.active { border-color: rgba(255,200,0,0.5);  background: rgba(255,200,0,0.1);   color: #ffc800; }
+.priority-btn.low.active    { border-color: rgba(107,114,128,0.5); background: rgba(107,114,128,0.1); color: var(--sub); }
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+</style>
+</head>
+<body>
+<div id="app">
+
+<!-- ══ FINANCE VIEW ══════════════════════════════════════════════════════════ -->
+<div id="view-finance" class="view active">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-title">Finance HUD</div>
+    <div class="header-date" id="hdr-date"></div>
+  </div>
+
+  <!-- Balance -->
+  <div class="balance-card">
+    <div class="balance-label">Текущий баланс</div>
+    <div class="balance-amount" id="balance">$0.00</div>
+    <div class="balance-sub" id="balance-sub">Загрузка данных...</div>
+  </div>
+
+  <!-- Stats this month -->
+  <div class="stats-row">
+    <div class="stat-card income">
+      <div class="stat-label">Доход / месяц</div>
+      <div class="stat-amount" id="month-income">$0.00</div>
+      <div class="stat-hint" id="total-income">Всего: $0.00</div>
+    </div>
+    <div class="stat-card expense">
+      <div class="stat-label">Расход / месяц</div>
+      <div class="stat-amount" id="month-expense">$0.00</div>
+      <div class="stat-hint" id="total-expense">Всего: $0.00</div>
+    </div>
+  </div>
+
+  <!-- Actions -->
+  <div class="actions">
+    <button class="btn btn-income"  onclick="openSheet('income')">+ Доход</button>
+    <button class="btn btn-expense" onclick="openSheet('expense')">− Расход</button>
+    <button class="btn btn-import"  onclick="importClaude()" title="Импорт из Claude usage">🤖</button>
+    <button class="btn btn-clear"   onclick="openClear()" title="Очистить данные">🗑</button>
+  </div>
+
+  <!-- Transactions -->
+  <div class="section-title">Операции</div>
+  <div class="txn-list" id="txn-list">
+    <div class="spinner"></div>
+  </div>
+
+</div><!-- /view-finance -->
+
+<!-- ══ TASKS VIEW ════════════════════════════════════════════════════════════ -->
+<div id="view-tasks" class="view">
+
+  <div class="tasks-header">
+    <div class="tasks-counters">
+      <button class="counter-badge all active"  onclick="filterTasks('')">Все <span id="cnt-all">0</span></button>
+      <button class="counter-badge todo"        onclick="filterTasks('todo')">· <span id="cnt-todo">0</span></button>
+      <button class="counter-badge doing"       onclick="filterTasks('in_progress')">▶ <span id="cnt-doing">0</span></button>
+      <button class="counter-badge done"        onclick="filterTasks('done')">✓ <span id="cnt-done">0</span></button>
+    </div>
+    <button class="btn-add-task" onclick="openTaskSheet()">+</button>
+  </div>
+
+  <div class="task-list" id="task-list">
+    <div class="spinner"></div>
+  </div>
+
+</div><!-- /view-tasks -->
+
+<!-- Tab bar -->
+<div class="tab-bar">
+  <button class="tab-item active" id="tab-finance" onclick="switchTab('finance')">
+    <span class="tab-icon">💰</span>
+    <span class="tab-label">Финансы</span>
+  </button>
+  <button class="tab-item" id="tab-tasks" onclick="switchTab('tasks')">
+    <span class="tab-icon">✓</span>
+    <span class="tab-label">Задачи</span>
+  </button>
+</div>
+
+</div>
+
+<!-- Clear confirm sheet -->
+<div class="overlay" id="overlay-clear" onclick="closeClear()"></div>
+<div class="sheet" id="sheet-clear">
+  <div class="sheet-handle"></div>
+  <div class="sheet-inner">
+    <div class="sheet-title" style="color:var(--red)">Очистить данные</div>
+    <p style="color:var(--sub);font-size:13px;text-align:center;margin-bottom:20px;line-height:1.5">
+      Выбери что удалить.<br>Действие необратимо.
+    </p>
+    <button class="btn-clear-opt" onclick="confirmClear('income')">
+      <span>↑</span> Удалить все доходы
+    </button>
+    <button class="btn-clear-opt" onclick="confirmClear('expense')">
+      <span>↓</span> Удалить все расходы
+    </button>
+    <button class="btn-clear-opt danger" onclick="confirmClear('')">
+      <span>✕</span> Удалить всё
+    </button>
+    <button class="btn-cancel" onclick="closeClear()">Отмена</button>
+  </div>
+</div>
+
+<!-- Overlay -->
+<div class="overlay" id="overlay" onclick="closeSheet()"></div>
+
+<!-- Task sheet -->
+<div class="overlay" id="overlay-task" onclick="closeTaskSheet()"></div>
+<div class="sheet" id="sheet-task">
+  <div class="sheet-handle"></div>
+  <div class="sheet-inner">
+    <div class="sheet-title" id="task-sheet-title">Новая задача</div>
+
+    <div class="field">
+      <label>Название</label>
+      <input type="text" id="t-title" placeholder="Что нужно сделать..." maxlength="120">
+    </div>
+
+    <div class="field">
+      <label>Описание</label>
+      <input type="text" id="t-desc" placeholder="Подробности..." maxlength="300">
+    </div>
+
+    <div class="field">
+      <label>Приоритет</label>
+      <div class="priority-row">
+        <button class="priority-btn high"   data-p="high"   onclick="setTaskPriority('high')">🔴 Высокий</button>
+        <button class="priority-btn medium active" data-p="medium" onclick="setTaskPriority('medium')">🟡 Средний</button>
+        <button class="priority-btn low"    data-p="low"    onclick="setTaskPriority('low')">⚪ Низкий</button>
+      </div>
+    </div>
+
+    <button class="btn-save" id="btn-task-save" onclick="saveTask()">Создать задачу</button>
+  </div>
+</div>
+
+<!-- Add sheet -->
+<div class="sheet" id="sheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-inner">
+    <div class="sheet-title" id="sheet-title">Добавить</div>
+
+    <div class="type-toggle">
+      <button class="type-tab income active" data-t="income"  onclick="setType('income')">Доход</button>
+      <button class="type-tab expense"       data-t="expense" onclick="setType('expense')">Расход</button>
+    </div>
+
+    <div class="field">
+      <label>Сумма</label>
+      <div class="amount-wrap">
+        <input type="number" id="f-amount" placeholder="0" step="0.01" min="0.01" inputmode="decimal">
+        <span class="amount-currency">USD</span>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Категория</label>
+      <select id="f-category"></select>
+    </div>
+
+    <div class="field">
+      <label>Описание</label>
+      <input type="text" id="f-desc" placeholder="Необязательно..." maxlength="120">
+    </div>
+
+    <button class="btn-save" id="btn-save" onclick="save()">Сохранить</button>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ── Init ──────────────────────────────────────────────────────────────────────
+const tg = window.Telegram?.WebApp;
+if (tg) { tg.ready(); tg.expand(); }
+
+const initData = tg?.initData || '';
+
+// Header date
+const now = new Date();
+document.getElementById('hdr-date').textContent =
+  now.toLocaleDateString('ru-RU', { day:'2-digit', month:'short', year:'numeric' }).toUpperCase();
+
+// ── Categories ────────────────────────────────────────────────────────────────
+const CATS = {
+  income:  ['Freelance', 'Зарплата', 'Клиент', 'Инвестиции', 'Кешбэк', 'Другое'],
+  expense: ['Claude API', 'Сервер', 'Подписка', 'Реклама', 'Домен', 'Инструменты', 'Другое'],
+};
+const CAT_ICONS = {
+  'Freelance':'💼', 'Зарплата':'💰', 'Клиент':'🤝', 'Инвестиции':'📈',
+  'Кешбэк':'🎁', 'Claude API':'🤖', 'Сервер':'🖥️', 'Подписка':'📱',
+  'Реклама':'📢', 'Домен':'🌐', 'Инструменты':'🔧', 'Другое':'📌',
+};
+
+// ── API ───────────────────────────────────────────────────────────────────────
+async function api(method, path, body) {
+  const opts = {
+    method,
+    headers: { 'Content-Type': 'application/json', 'X-Init-Data': initData },
+  };
+  if (body !== undefined) opts.body = JSON.stringify(body);
+  const res = await fetch(path, opts);
+  if (res.status === 204) return null;
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || res.statusText);
+  return data;
+}
+
+// ── Load & render ─────────────────────────────────────────────────────────────
+let state = { stats: null, txns: [] };
+
+async function load() {
+  try {
+    const [stats, txns] = await Promise.all([
+      api('GET', '/api/stats'),
+      api('GET', '/api/transactions'),
+    ]);
+    state.stats = stats;
+    state.txns  = txns;
+    renderStats(stats);
+    renderList(txns);
+  } catch (e) {
+    showToast('Ошибка загрузки: ' + e.message, 'error');
+    document.getElementById('txn-list').innerHTML =
+      `<div class="empty-state"><div class="empty-icon">⚠️</div><div class="empty-text">${e.message}</div></div>`;
+  }
+}
+
+function fmt(amount) {
+  return '$' + Math.abs(amount).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+}
+
+function renderStats(s) {
+  const bal = document.getElementById('balance');
+  bal.textContent = fmt(s.balance);
+  bal.className = 'balance-amount' + (s.balance < 0 ? ' negative' : '');
+  document.getElementById('balance-sub').textContent =
+    `Доход за всё время: ${fmt(s.total_income)}  ·  Расход: ${fmt(s.total_expenses)}`;
+  document.getElementById('month-income').textContent  = fmt(s.month_income);
+  document.getElementById('month-expense').textContent = fmt(s.month_expenses);
+  document.getElementById('total-income').textContent  = 'Всего: ' + fmt(s.total_income);
+  document.getElementById('total-expense').textContent = 'Всего: ' + fmt(s.total_expenses);
+}
+
+function relTime(dateStr) {
+  const d = new Date(dateStr);
+  const diff = Math.floor((Date.now() - d) / 86400000);
+  if (diff === 0) return 'сегодня';
+  if (diff === 1) return 'вчера';
+  if (diff < 7)  return diff + ' дн назад';
+  if (diff < 30) return Math.floor(diff/7) + ' нед назад';
+  return d.toLocaleDateString('ru-RU', { day:'2-digit', month:'short' });
+}
+
+function renderList(txns) {
+  const el = document.getElementById('txn-list');
+  if (!txns.length) {
+    el.innerHTML = `<div class="empty-state">
+      <div class="empty-icon">📊</div>
+      <div class="empty-text">Нет операций.<br>Нажми + Доход или − Расход</div>
+    </div>`;
+    return;
+  }
+  el.innerHTML = txns.map(t => {
+    const icon = CAT_ICONS[t.category] || (t.type === 'income' ? '↑' : '↓');
+    const sign = t.type === 'income' ? '+' : '−';
+    return `<div class="txn-item ${t.type}" data-id="${t.id}">
+      <div class="txn-icon">${icon}</div>
+      <div class="txn-info">
+        <div class="txn-cat">${esc(t.category || t.description || '—')}</div>
+        ${t.description ? `<div class="txn-desc">${esc(t.description)}</div>` : ''}
+      </div>
+      <div class="txn-right">
+        <div class="txn-amount">${sign}${fmt(t.amount)}</div>
+        <div class="txn-date">${relTime(t.created_at)}</div>
+      </div>
+      <button class="txn-del" onclick="del(${t.id},event)">✕</button>
+    </div>`;
+  }).join('');
+
+  // Show delete on touch
+  el.querySelectorAll('.txn-item').forEach(item => {
+    let timer;
+    item.addEventListener('touchstart', () => {
+      timer = setTimeout(() => {
+        item.querySelector('.txn-del').style.opacity = '1';
+      }, 400);
+    });
+    item.addEventListener('touchend', () => clearTimeout(timer));
+  });
+}
+
+function esc(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ── Delete ────────────────────────────────────────────────────────────────────
+async function del(id, e) {
+  e.stopPropagation();
+  tg?.HapticFeedback?.impactOccurred('light');
+  try {
+    await api('DELETE', '/api/transactions/' + id);
+    await load();
+    showToast('Удалено', 'success');
+  } catch(err) {
+    showToast('Ошибка: ' + err.message, 'error');
+  }
+}
+
+// ── Sheet ─────────────────────────────────────────────────────────────────────
+let currentType = 'income';
+
+function openSheet(type) {
+  tg?.HapticFeedback?.impactOccurred('medium');
+  setType(type);
+  document.getElementById('f-amount').value = '';
+  document.getElementById('f-desc').value = '';
+  document.getElementById('overlay').classList.add('visible');
+  document.getElementById('sheet').classList.add('visible');
+  setTimeout(() => document.getElementById('f-amount').focus(), 350);
+}
+
+function closeSheet() {
+  document.getElementById('overlay').classList.remove('visible');
+  document.getElementById('sheet').classList.remove('visible');
+}
+
+function setType(type) {
+  currentType = type;
+  document.querySelectorAll('.type-tab').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.t === type);
+  });
+  document.getElementById('sheet-title').textContent =
+    type === 'income' ? 'Добавить доход' : 'Добавить расход';
+  // Update categories
+  const sel = document.getElementById('f-category');
+  sel.innerHTML = CATS[type].map(c => `<option value="${c}">${CAT_ICONS[c] || ''} ${c}</option>`).join('');
+}
+
+// ── Save ──────────────────────────────────────────────────────────────────────
+async function save() {
+  const amount = parseFloat(document.getElementById('f-amount').value);
+  if (!amount || amount <= 0) {
+    tg?.HapticFeedback?.notificationOccurred('error');
+    document.getElementById('f-amount').focus();
+    showToast('Введи сумму', 'error');
+    return;
+  }
+  const btn = document.getElementById('btn-save');
+  btn.disabled = true;
+  btn.textContent = '...';
+  try {
+    await api('POST', '/api/transactions', {
+      type:        currentType,
+      amount:      amount,
+      currency:    'USD',
+      category:    document.getElementById('f-category').value,
+      description: document.getElementById('f-desc').value.trim(),
+    });
+    tg?.HapticFeedback?.notificationOccurred('success');
+    closeSheet();
+    await load();
+    showToast(currentType === 'income' ? '✓ Доход добавлен' : '✓ Расход добавлен', 'success');
+  } catch(err) {
+    tg?.HapticFeedback?.notificationOccurred('error');
+    showToast('Ошибка: ' + err.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Сохранить';
+  }
+}
+
+// ── Clear ─────────────────────────────────────────────────────────────────────
+function openClear() {
+  tg?.HapticFeedback?.impactOccurred('medium');
+  document.getElementById('overlay-clear').classList.add('visible');
+  document.getElementById('sheet-clear').classList.add('visible');
+}
+function closeClear() {
+  document.getElementById('overlay-clear').classList.remove('visible');
+  document.getElementById('sheet-clear').classList.remove('visible');
+}
+async function confirmClear(type) {
+  const labels = { income: 'все доходы', expense: 'все расходы', '': 'все данные' };
+  const label = labels[type];
+  tg?.showConfirm(`Удалить ${label}? Это действие необратимо.`, async (ok) => {
+    if (!ok) return;
+    tg?.HapticFeedback?.notificationOccurred('warning');
+    try {
+      const url = '/api/transactions' + (type ? `?type=${type}` : '');
+      await api('DELETE', url);
+      closeClear();
+      await load();
+      showToast(`✓ Удалено: ${label}`, 'success');
+    } catch(err) {
+      showToast('Ошибка: ' + err.message, 'error');
+    }
+  });
+}
+
+// ── Import Claude ─────────────────────────────────────────────────────────────
+async function importClaude() {
+  tg?.HapticFeedback?.impactOccurred('medium');
+  showToast('Импорт...', '');
+  try {
+    const res = await api('POST', '/api/import/claude');
+    await load();
+    showToast(`✓ Импортировано: ${res.imported}, пропущено: ${res.skipped}`, 'success');
+  } catch(err) {
+    showToast('Ошибка: ' + err.message, 'error');
+  }
+}
+
+// ── Toast ─────────────────────────────────────────────────────────────────────
+let toastTimer;
+function showToast(msg, type = '') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (type ? ' ' + type : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// ── Tab switching ─────────────────────────────────────────────────────────────
+let currentTab = 'finance';
+
+function switchTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
+  document.getElementById('view-' + tab).classList.add('active');
+  document.getElementById('tab-' + tab).classList.add('active');
+  tg?.HapticFeedback?.selectionChanged();
+  if (tab === 'tasks') loadTasks();
+}
+
+// ── Tasks ─────────────────────────────────────────────────────────────────────
+let currentTaskFilter = '';
+let currentTaskPriority = 'medium';
+let editTaskId = null;
+
+async function loadTasks() {
+  try {
+    const [list, stats] = await Promise.all([
+      api('GET', '/api/tasks' + (currentTaskFilter ? '?status=' + currentTaskFilter : '')),
+      api('GET', '/api/tasks/stats'),
+    ]);
+    renderTaskCounters(stats);
+    renderTaskList(list);
+  } catch(e) {
+    showToast('Ошибка: ' + e.message, 'error');
+  }
+}
+
+function renderTaskCounters(stats) {
+  const total = (stats.todo || 0) + (stats.in_progress || 0) + (stats.done || 0);
+  document.getElementById('cnt-all').textContent   = total;
+  document.getElementById('cnt-todo').textContent  = stats.todo || 0;
+  document.getElementById('cnt-doing').textContent = stats.in_progress || 0;
+  document.getElementById('cnt-done').textContent  = stats.done || 0;
+}
+
+function filterTasks(status) {
+  currentTaskFilter = status;
+  document.querySelectorAll('.counter-badge').forEach(b => b.classList.remove('active'));
+  const map = { '': 'all', 'todo': 'todo', 'in_progress': 'doing', 'done': 'done' };
+  document.querySelector('.counter-badge.' + (map[status] || 'all')).classList.add('active');
+  loadTasks();
+}
+
+const STATUS_NEXT = { 'todo': 'in_progress', 'in_progress': 'done', 'done': 'todo' };
+const STATUS_ICON = { 'todo': '', 'in_progress': '▶', 'done': '✓' };
+const PRIORITY_COLOR = { high: 'var(--red)', medium: '#ffc800', low: 'var(--sub)' };
+
+function renderTaskList(list) {
+  const el = document.getElementById('task-list');
+  if (!list.length) {
+    el.innerHTML = `<div class="empty-state">
+      <div class="empty-icon">✓</div>
+      <div class="empty-text">Нет задач.<br>Нажми + чтобы добавить</div>
+    </div>`;
+    return;
+  }
+  el.innerHTML = list.map(t => `
+    <div class="task-item ${t.status === 'done' ? 'done-item' : ''}" data-id="${t.id}">
+      <div class="task-check ${t.status}" onclick="cycleStatus(${t.id},'${t.status}')">
+        ${STATUS_ICON[t.status] || ''}
+      </div>
+      <div class="task-body">
+        <div class="task-title">${esc(t.title)}</div>
+        ${t.description ? `<div class="task-desc">${esc(t.description)}</div>` : ''}
+        <div class="task-meta">
+          <div class="priority-dot ${t.priority}"></div>
+          <span class="priority-label">${{high:'Высокий',medium:'Средний',low:'Низкий'}[t.priority]}</span>
+        </div>
+      </div>
+      <button class="task-del" onclick="delTask(${t.id},event)">✕</button>
+    </div>`).join('');
+
+  el.querySelectorAll('.task-item').forEach(item => {
+    let timer;
+    item.addEventListener('touchstart', () => {
+      timer = setTimeout(() => {
+        item.querySelector('.task-del').style.opacity = '1';
+      }, 400);
+    });
+    item.addEventListener('touchend', () => clearTimeout(timer));
+  });
+}
+
+async function cycleStatus(id, current) {
+  const next = STATUS_NEXT[current];
+  tg?.HapticFeedback?.impactOccurred('light');
+  try {
+    await api('PATCH', `/api/tasks/${id}/status`, { status: next });
+    await loadTasks();
+  } catch(e) {
+    showToast('Ошибка: ' + e.message, 'error');
+  }
+}
+
+async function delTask(id, e) {
+  e.stopPropagation();
+  tg?.HapticFeedback?.impactOccurred('light');
+  try {
+    await api('DELETE', `/api/tasks/${id}`);
+    await loadTasks();
+    showToast('Удалено', 'success');
+  } catch(e) {
+    showToast('Ошибка: ' + e.message, 'error');
+  }
+}
+
+// ── Task sheet ────────────────────────────────────────────────────────────────
+function openTaskSheet() {
+  editTaskId = null;
+  document.getElementById('task-sheet-title').textContent = 'Новая задача';
+  document.getElementById('btn-task-save').textContent = 'Создать задачу';
+  document.getElementById('t-title').value = '';
+  document.getElementById('t-desc').value = '';
+  setTaskPriority('medium');
+  document.getElementById('overlay-task').classList.add('visible');
+  document.getElementById('sheet-task').classList.add('visible');
+  setTimeout(() => document.getElementById('t-title').focus(), 350);
+  tg?.HapticFeedback?.impactOccurred('medium');
+}
+
+function closeTaskSheet() {
+  document.getElementById('overlay-task').classList.remove('visible');
+  document.getElementById('sheet-task').classList.remove('visible');
+}
+
+function setTaskPriority(p) {
+  currentTaskPriority = p;
+  document.querySelectorAll('.priority-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.p === p);
+  });
+}
+
+async function saveTask() {
+  const title = document.getElementById('t-title').value.trim();
+  if (!title) {
+    tg?.HapticFeedback?.notificationOccurred('error');
+    document.getElementById('t-title').focus();
+    showToast('Введи название', 'error');
+    return;
+  }
+  const btn = document.getElementById('btn-task-save');
+  btn.disabled = true;
+  try {
+    await api('POST', '/api/tasks', {
+      title,
+      description: document.getElementById('t-desc').value.trim(),
+      priority: currentTaskPriority,
+      status: 'todo',
+    });
+    tg?.HapticFeedback?.notificationOccurred('success');
+    closeTaskSheet();
+    await loadTasks();
+    showToast('✓ Задача добавлена', 'success');
+  } catch(e) {
+    showToast('Ошибка: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Создать задачу';
+  }
+}
+
+// ── Start ─────────────────────────────────────────────────────────────────────
+setType('income'); // init categories
+load();
+</script>
+</body>
+</html>

@@ -1,0 +1,23 @@
+[Unit]
+Description=aigate Finance Bot (Telegram Mini App)
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/opt/aigate-bot
+# Добавить в /etc/aigate/secrets:
+#   TG_BOT_TOKEN=<токен от @BotFather>
+#   TG_APP_URL=https://zhandos.top/app
+#   FINANCE_DB=/root/.aigate/finance.db
+#   BOT_PORT=4002
+#   USAGE_LOG=/root/.zeroclaw/workspace/claude-usage.jsonl
+EnvironmentFile=/etc/aigate/secrets
+
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=aigate-bot
+
+[Install]
+WantedBy=multi-user.target
